@@ -4,6 +4,7 @@ import cn.ctcraft.ctonlinereward.CtOnlineReward;
 import cn.ctcraft.ctonlinereward.RewardEntity;
 import cn.ctcraft.ctonlinereward.database.DataService;
 import cn.ctcraft.ctonlinereward.database.YamlData;
+import cn.ctcraft.ctonlinereward.service.RewardService;
 import cn.ctcraft.ctonlinereward.service.RewardStatus;
 import cn.ctcraft.ctonlinereward.service.YamlService;
 import cn.ctcraft.ctonlinereward.service.rewardHandler.RewardOnlineTimeHandler;
@@ -350,23 +351,13 @@ public class InventoryFactory {
     }
 
     private RewardStatus getRewardStatus(Player player, String rewardId) {
-        ConfigurationSection configurationSection = YamlData.rewardYaml.getConfigurationSection(rewardId);
-        if (configurationSection == null) {
+        ConfigurationSection rewardSection = RewardService.getInstance().getRewardSection(rewardId);
+        if (rewardSection == null) {
             ctOnlineReward.getLogger().warning("§c§l■ 未找到奖励配置 §f§n" + rewardId + "§c§l 请检查reward.yml配置文件中是否有指定配置!");
             return RewardStatus.before;
         }
-        if (!configurationSection.contains("time")) {
-            return RewardStatus.before;
-        }
-        boolean timeIsOk = RewardOnlineTimeHandler.getInstance().onlineTimeIsOk(player, configurationSection.getString("time"));
-        if (!timeIsOk) {
-            return RewardStatus.before;
-        }
-        List<String> playerRewardArray = CtOnlineReward.dataService.getPlayerRewardArray(player);
-        if (playerRewardArray.isEmpty() || !playerRewardArray.contains(rewardId)) {
-            return RewardStatus.activation;
-        }
-        return RewardStatus.after;
+        RewardOnlineTimeHandler rewardOnlineTimeHandler = new RewardOnlineTimeHandler(player, rewardSection);
+        return rewardOnlineTimeHandler.getRewardStatus();
     }
 
 

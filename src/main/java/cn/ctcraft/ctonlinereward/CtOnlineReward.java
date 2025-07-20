@@ -5,21 +5,19 @@ import cn.ctcraft.ctonlinereward.database.*;
 import cn.ctcraft.ctonlinereward.inventory.RewardSetInventoryMonitor;
 import cn.ctcraft.ctonlinereward.listner.InventoryMonitor;
 import cn.ctcraft.ctonlinereward.listner.PlayerMonitor;
-import cn.ctcraft.ctonlinereward.service.OnlineTimer;
-import cn.ctcraft.ctonlinereward.service.RemindTimer;
 import cn.ctcraft.ctonlinereward.service.RewardService;
 import cn.ctcraft.ctonlinereward.service.YamlService;
 import cn.ctcraft.ctonlinereward.service.afk.AfkService;
 import cn.ctcraft.ctonlinereward.service.afk.AfkTimer;
+import cn.ctcraft.ctonlinereward.service.scheduler.OnlineTimer;
+import cn.ctcraft.ctonlinereward.service.scheduler.RemindTimer;
 import cn.ctcraft.ctonlinereward.utils.version;
 import net.milkbowl.vault.economy.Economy;
 import org.black_ixx.playerpoints.PlayerPoints;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -59,6 +57,7 @@ public final class CtOnlineReward extends JavaPlugin {
                 versionMsg.forEach(getLogger()::info);
             }
         }.runTaskAsynchronously(this);
+
 
         Metrics metrics = new Metrics(this);
 
@@ -105,6 +104,7 @@ public final class CtOnlineReward extends JavaPlugin {
 
         languageHandler = new LanguageHandler();
 
+
         OnlineTimer.getInstance().runTaskTimerAsynchronously(this, 1200, 1200);
 
         boolean afk = getConfig().getBoolean("Setting.afkConfig.use");
@@ -138,6 +138,7 @@ public final class CtOnlineReward extends JavaPlugin {
     }
 
     public void load() {
+
         saveDefaultConfig();
 
         File file = new File(getDataFolder() + "/rewardData/");
@@ -193,6 +194,9 @@ public final class CtOnlineReward extends JavaPlugin {
             logger.warning("§c§l■ papi变量配置文件加载失败!");
             e.printStackTrace();
         }
+
+        RewardService.getInstance().registerRewardCondition();
+
     }
 
 

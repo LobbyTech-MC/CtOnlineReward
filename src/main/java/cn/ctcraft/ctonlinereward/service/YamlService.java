@@ -2,20 +2,20 @@ package cn.ctcraft.ctonlinereward.service;
 
 import cn.ctcraft.ctonlinereward.CtOnlineReward;
 import cn.ctcraft.ctonlinereward.database.YamlData;
-import cn.ctcraft.ctonlinereward.utils.Util;
-import com.google.gson.*;
+import cn.ctcraft.ctonlinereward.service.json.JsonObject;
+import cn.ctcraft.ctonlinereward.service.scheduler.RemindTimer;
+import cn.ctcraft.ctonlinereward.utils.JsonUtils;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class YamlService {
     private static final YamlService instance = new YamlService();
@@ -57,14 +57,25 @@ public class YamlService {
     }
 
     public boolean loadRewardYaml() {
-        YamlConfiguration rewardYaml = YamlData.rewardYaml;
-        Path filePath = Paths.get(ctOnlineReward.getDataFolder().getPath(), "reward.yml");
-        if (!Files.exists(filePath)) {
-            saveResourceFile("reward.yml");
+        Map<String, ConfigurationSection> rewards = new ConcurrentHashMap<>();
+        File rewardDir = new File(ctOnlineReward.getDataFolder(), "rewards");
+        if (!rewardDir.exists()) {
+            saveResourceFile("rewards/10min.yml");
         }
         try {
-            rewardYaml.load(filePath.toFile());
-            loadRemindJson();
+            Arrays.stream(Objects.requireNonNull(rewardDir.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File pathname) {
+                    return pathname.getName().endsWith(".yml");
+                }
+            }))).map(YamlConfiguration::loadConfiguration).forEach(yamlConfiguration -> {
+                yamlConfiguration.getKeys(false).forEach(key -> {
+                    rewards.put(key, yamlConfiguration.getConfigurationSection(key));
+                    loadRemindJson(yamlConfiguration.getConfigurationSection(key), key);
+                    ctOnlineReward.getLogger().info(key + " 奖励文件加载成功!");
+                });
+            });
+            RewardService.getInstance().loadRewardYamlToMemory(rewards);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -73,26 +84,18 @@ public class YamlService {
         return false;
     }
 
-    public boolean loadRemindJson() {
-        YamlConfiguration rewardYaml = YamlData.rewardYaml;
-        YamlData.remindJson = new JsonArray();
-        Set<String> keys = rewardYaml.getKeys(false);
-        keys.stream()
-                .filter(key -> rewardYaml.contains(key + ".remind"))
-                .forEach(key -> {
-                    ConfigurationSection configurationSection = rewardYaml.getConfigurationSection(key);
-                    boolean remind = configurationSection.getBoolean("remind", false);
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.addProperty("reward", key);
-                    jsonObject.addProperty("remind", remind);
-                    if (configurationSection.contains("permission")) {
-                        String permission = configurationSection.getString("permission");
-                        jsonObject.addProperty("permission", permission);
-                    }
-                    YamlData.remindJson.add(jsonObject);
-                });
-
-        return true;
+    public void loadRemindJson(ConfigurationSection section, String key) {
+        YamlData.remindJson = JsonUtils.newJsonArray();
+        if (section.getBoolean("remind", false)) {
+            JsonObject jsonObject = JsonUtils.newJsonObject();
+            jsonObject.put("reward", key);
+            jsonObject.put("remind", true);
+            if (section.contains("permission")) {
+                String permission = section.getString("permission");
+                jsonObject.put("permission", permission);
+            }
+            RemindTimer.remindJson.addFromJsonString(jsonObject.toJsonString(false));
+        }
     }
 
     private void saveResourceFile(String resourcePath) {
